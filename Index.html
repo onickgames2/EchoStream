@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EchoStream | Som Imersivo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        
+        :root {
+            --app-accent: #22c55e;
+            --grad-color: rgba(34, 197, 94, 0.15);
+        }
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #000; 
+            color: white; 
+            overflow: hidden; 
+            height: 100vh; 
+            transition: background 0.5s ease;
+        }
+
+        /* Fundo Dinâmico */
+        #dynamic-bg {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .bg-up { background: linear-gradient(to bottom, var(--grad-color), transparent 70%); }
+        .bg-down { background: linear-gradient(to top, var(--grad-color), transparent 70%); }
+        .bg-side { background: linear-gradient(to right, var(--grad-color), transparent 70%); }
+        .bg-none { background: none; }
+
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(25px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .page-transition { transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+        .hidden-state { opacity: 0; transform: scale(0.95); filter: blur(10px); pointer-events: none; }
+        
+        /* Mural 3D na Splash */
+        .splash-wall {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            perspective: 2000px;
+            overflow: hidden;
+            opacity: 0.25;
+            z-index: 0;
+            transform: rotateX(15deg) rotateZ(-10deg) scale(1.4);
+        }
+
+        .wall-column {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 140px;
+            will-change: transform;
+        }
+
+        @media (min-width: 1024px) {
+            .wall-column { width: 200px; gap: 25px; }
+            .splash-wall { gap: 25px; opacity: 0.35; }
+        }
+
+        .wall-column.up { animation: scrollUp 45s linear infinite; }
+        .wall-column.down { animation: scrollDown 45s linear infinite; }
+
+        .wall-item {
+            width: 100%;
+            aspect-ratio: 1/1;
+            border-radius: 12px;
+            object-fit: cover;
+            background: #111;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transition: filter 0.3s;
+        }
+
+        @keyframes scrollUp { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+        @keyframes scrollDown { from { transform: translateY(-50%); } to { transform: translateY(0); } }
+
+        /* Notificação Mobile APK */
+        #mobile-invite {
+            position: fixed;
+            bottom: 110px;
+            left: 50%;
+            transform: translateX(-50%) translateY(200%);
+            z-index: 1000;
+            width: 90%;
+            max-width: 350px;
+            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        #mobile-invite.show { transform: translateX(-50%) translateY(0); }
+
+        /* Menu Lateral */
+        #side-menu {
+            position: fixed; top: 0; right: 0; width: 300px; height: 100%; z-index: 150;
+            background: rgba(10, 10, 10, 0.98);
+            backdrop-filter: blur(30px);
+            transform: translateX(100%);
+            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            border-left: 1px solid rgba(255,255,255,0.1);
+        }
+        #side-menu.active { transform: translateX(0); }
+
+        /* Player */
+        #now-playing-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 100;
+            background: linear-gradient(to bottom, #0a0a0a, #000);
+            transform: translateY(100%);
+            transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        #now-playing-screen.active { transform: translateY(0); }
+
+        /* Album View (Adicionado) */
+        #album-view {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 110;
+            background: #000;
+            transform: translateY(100%);
+            transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        #album-view.active { transform: translateY(0); }
+        #album-hero-bg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 60%;
+            background-size: cover; background-position: center;
+            filter: blur(40px) brightness(0.3); opacity: 0.6; pointer-events: none;
+        }
+
+        #search-container { transition: all 0.4s ease; width: 40px; overflow: hidden; }
+        #search-container.expanded { width: 180px; background: rgba(255, 255, 255, 0.1); border-radius: 9999px; padding-right: 12px; }
+
+        /* Pop-up Feedback */
+        .feedback-popup {
+            position: fixed;
+            inset: 0;
+            z-index: 300;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(10px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+        }
+        .feedback-popup.active { opacity: 1; pointer-events: auto; }
+
+        .feedback-content {
+            position: relative;
+            background: #0a0a0a;
+            padding: 3px;
+            border-radius: 2.5rem;
+            overflow: hidden;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        .feedback-inner {
+            background: #0a0a0a;
+            border-radius: 2.3rem;
+            padding: 2.5rem;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .animated-border {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 150%;
+            height: 150%;
+            background: conic-gradient(from 0deg, transparent, var(--app-accent), #ef4444, var(--app-accent), transparent);
+            animation: rotateBorder 4s linear infinite;
+            transform: translate(-50%, -50%);
+            z-index: 0;
+        }
+
+        @keyframes rotateBorder {
+            from { transform: translate(-50%, -50%) rotate(0deg); }
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        /* Animações de Capa */
+        .cover-container { position: relative; width: 100%; max-width: 320px; aspect-ratio: 1/1; perspective: 1200px; overflow: visible; }
+        .slide-cover { position: absolute; inset: 0; transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.6s ease; border-radius: 2rem; box-shadow: 0 30px 60px rgba(0,0,0,0.8); object-fit: cover; }
+        
+        .slide-out-left { transform: translateX(-150%) rotateY(-30deg) scale(0.8); opacity: 0; }
+        .slide-out-right { transform: translateX(150%) rotateY(30deg) scale(0.8); opacity: 0; }
+        .slide-in-right { transform: translateX(150%) rotateY(30deg) scale(0.8); opacity: 0; }
+        .slide-in-left { transform: translateX(-150%) rotateY(-30deg) scale(0.8); opacity: 0; }
+        .slide-active { transform: translateX(0) rotateY(0) scale(1); opacity: 1; }
+
+        #visualizer { position: absolute; bottom: 0; left: 0; width: 100%; height: 35%; z-index: 0; opacity: 0.4; pointer-events: none; }
+
+        input[type=range] { -webkit-appearance: none; background: transparent; }
+        input[type=range]::-webkit-slider-runnable-track { background: rgba(255,255,255,0.1); height: 4px; border-radius: 2px; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%; background: var(--app-accent); margin-top: -5px; cursor: pointer; }
+
+        .favorite-active { color: #ff4d4d !important; text-shadow: 0 0 10px rgba(255, 77, 77, 0.4); }
+        .spin-slow { animation: spin 15s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        .desktop-only { display: none; }
+        @media (min-width: 768px) { .desktop-only { display: block; } }
+
+        .lang-btn.active { background: var(--app-accent); color: black; border-color: var(--app-accent); }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body>
+
+    <div id="dynamic-bg" class="bg-none"></div>
+
+    <div id="mobile-invite" class="hidden">
+        <div class="glass p-4 rounded-3xl flex items-center gap-4 shadow-2xl border-white/10">
+            <div class="w-12 h-12 bg-green-500 rounded-2xl flex items-center justify-center text-black text-xl shrink-0">
+                <i class="fa-solid fa-mobile-screen-button"></i>
+            </div>
+            <div class="flex-1">
+                <p class="text-[11px] font-black text-white leading-tight mb-1">Baixe a versão mobile do EchoStream!</p>
+                <a href="https://files.catbox.moe/6gq5eq.apk" download class="text-[10px] text-green-500 font-bold uppercase tracking-tighter hover:underline">Baixar APK agora</a>
+            </div>
+            <button onclick="dismissInvite()" class="w-8 h-8 text-zinc-500 hover:text-white">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+    </div>
+
+    <div id="splash-screen" class="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center page-transition overflow-hidden">
+        <div class="splash-wall" id="splash-wall"></div>
+        <div class="relative z-10 text-center flex flex-col items-center">
+            <div class="relative mb-6">
+                <div class="absolute inset-0 bg-green-500/30 blur-3xl rounded-full"></div>
+                <i class="fa-solid fa-compact-disc text-8xl text-green-500 spin-slow relative"></i>
+            </div>
+            <h1 class="text-5xl font-black tracking-tighter mb-4 text-white uppercase drop-shadow-2xl">EchoStream</h1>
+            <p class="text-zinc-400 text-[10px] tracking-[0.5em] mb-12 uppercase font-bold">Onde o som encontra o flow</p>
+            <button onclick="goToLogin()" data-i18n="connect_btn" class="px-16 py-5 bg-white text-black font-black rounded-full hover:scale-110 transition-all shadow-2xl active:scale-95">
+                CONECTAR
+            </button>
+        </div>
+    </div>
+
+    <div id="login-screen" class="hidden-state fixed inset-0 z-[190] bg-black flex items-center justify-center p-4 page-transition">
+        <div class="glass p-10 rounded-[3rem] w-full max-sm text-center shadow-2xl">
+            <div class="w-16 h-16 bg-green-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6 text-green-500 text-2xl">
+                <i class="fa-solid fa-bolt"></i>
+            </div>
+            <h2 data-i18n="welcome_title" class="text-2xl font-black mb-2 text-white">Bem-vindo</h2>
+            <p data-i18n="welcome_sub" class="text-zinc-500 text-sm mb-8">Como devemos te chamar?</p>
+            <input type="text" id="username-input" data-i18n-placeholder="name_placeholder" placeholder="Seu nome ou apelido..." 
+                class="w-full bg-white/5 border border-white/10 p-5 rounded-2xl mb-8 outline-none focus:border-green-500 text-center text-xl text-white">
+            <button onclick="finishLogin()" data-i18n="enter_btn" class="w-full py-5 bg-green-500 text-black font-black rounded-2xl active:scale-95 transition-all">
+                ENTRAR NO FLOW
+            </button>
+        </div>
+    </div>
+
+    <div id="side-menu" class="p-8 flex flex-col shadow-2xl">
+        <div class="flex justify-between items-center mb-10">
+            <h3 data-i18n="options_title" class="text-2xl font-black uppercase tracking-tighter text-white">Opções</h3>
+            <button onclick="toggleMenu()" class="w-10 h-10 flex items-center justify-center bg-white/5 rounded-full text-white"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="flex-1 space-y-10 overflow-y-auto pr-2">
+            <div class="space-y-4">
+                <p data-i18n="lang_label" class="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.3em]">Idioma</p>
+                <div class="grid grid-cols-3 gap-2">
+                    <button onclick="setLanguage('pt')" class="lang-btn px-2 py-3 rounded-xl border border-white/10 text-[10px] font-bold transition-all active" id="lang-pt">BR</button>
+                    <button onclick="setLanguage('en')" class="lang-btn px-2 py-3 rounded-xl border border-white/10 text-[10px] font-bold transition-all" id="lang-en">EN</button>
+                    <button onclick="setLanguage('es')" class="lang-btn px-2 py-3 rounded-xl border border-white/10 text-[10px] font-bold transition-all" id="lang-es">ES</button>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <p data-i18n="filters_label" class="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.3em]">Filtros</p>
+                <button id="fav-filter-btn" onclick="filterFavorites()" class="w-full flex items-center gap-4 p-5 bg-white/5 border border-transparent rounded-3xl hover:bg-white/10 transition text-white">
+                    <div class="fav-icon-circle w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 transition-colors">
+                        <i class="fa-solid fa-heart"></i>
+                    </div>
+                    <span data-i18n="fav_btn" class="font-bold">Favoritos</span>
+                </button>
+            </div>
+
+            <div class="space-y-6">
+                <p data-i18n="appearance_label" class="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.3em]">Aparência</p>
+                <div class="space-y-3">
+                    <label data-i18n="base_theme" class="text-xs font-semibold text-zinc-400">Tema Base</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="applyBaseTheme('dark')" data-i18n="theme_dark" class="p-4 bg-zinc-900 border border-white/10 rounded-2xl text-xs font-bold text-white uppercase tracking-tighter">Escuro</button>
+                        <button onclick="applyBaseTheme('light')" data-i18n="theme_light" class="p-4 bg-zinc-100 border border-zinc-200 text-black rounded-2xl text-xs font-bold uppercase tracking-tighter">Claro</button>
+                    </div>
+                </div>
+                <div class="space-y-3">
+                    <label data-i18n="grad_pos" class="text-xs font-semibold text-zinc-400">Local do Gradiente</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="applyGrad('up')" data-i18n="pos_top" class="p-3 bg-white/5 border border-white/5 rounded-xl text-[10px] text-white uppercase">Topo</button>
+                        <button onclick="applyGrad('down')" data-i18n="pos_bottom" class="p-3 bg-white/5 border border-white/5 rounded-xl text-[10px] text-white uppercase">Base</button>
+                        <button onclick="applyGrad('side')" data-i18n="pos_side" class="p-3 bg-white/5 border border-white/5 rounded-xl text-[10px] text-white uppercase">Lateral</button>
+                        <button onclick="applyGrad('none')" data-i18n="pos_none" class="p-3 bg-white/5 border border-white/5 rounded-xl text-[10px] text-white uppercase">Limpo</button>
+                    </div>
+                </div>
+                <div class="space-y-3">
+                    <label data-i18n="accent_color" class="text-xs font-semibold text-zinc-400">Cor de Destaque</label>
+                    <input type="color" id="accent-picker" onchange="updateAccent(this.value)" value="#22c55e" class="w-full h-12 bg-transparent cursor-pointer rounded-xl block">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="main-app" class="hidden-state h-screen flex flex-col page-transition relative z-10">
+        <header class="h-20 flex items-center justify-between px-6 border-b border-white/5 bg-black/20 backdrop-blur-lg">
+            <div class="flex items-center gap-2" onclick="location.reload()">
+                <i class="fa-solid fa-compact-disc text-green-500 text-xl" id="logo-icon"></i>
+                <span class="font-black tracking-tighter text-xl uppercase text-white">Echo</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <div id="search-container" class="flex items-center h-10 px-3">
+                    <button onclick="toggleSearch()" class="text-zinc-400 hover:text-white shrink-0">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </button>
+                    <input type="text" id="search-input" data-i18n-placeholder="search_placeholder" placeholder="Procurar..." 
+                        class="bg-transparent border-none outline-none text-xs ml-3 w-full text-white"
+                        oninput="handleSearch(this.value)">
+                </div>
+                <button onclick="toggleMenu()" id="profile-btn" class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center border border-green-500/30 text-green-500 font-bold active:scale-90 transition-transform">
+                    <span id="user-initial">?</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto p-6 pb-36 no-scrollbar">
+            <div id="greet" class="mb-10 opacity-0 translate-y-4 transition-all duration-1000">
+                <p id="view-type-label" data-i18n="sync_label" class="text-green-500 text-[10px] font-bold uppercase tracking-[0.4em] mb-2">Sincronizado</p>
+                <h2 class="text-4xl font-black text-white leading-tight"><span id="greet-text">Olá</span>, <span id="user-name-display">Usuário</span></h2>
+            </div>
+
+            <section class="mb-10">
+                <h3 class="text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em] mb-4">Álbuns & Playlists</h3>
+                <div id="horizontal-albums" class="flex gap-5 overflow-x-auto no-scrollbar"></div>
+            </section>
+
+            <h3 data-i18n="library_title" class="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mb-6">Sua Biblioteca</h3>
+            <div id="grid-container" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4"></div>
+            <div id="no-results" class="hidden text-center py-20">
+                <i class="fa-solid fa-ghost text-4xl text-zinc-800 mb-4"></i>
+                <p data-i18n="no_results" class="text-zinc-500 text-sm font-bold">Nada encontrado por aqui.</p>
+            </div>
+        </main>
+
+        <footer id="mini-player" class="fixed bottom-0 left-0 right-0 h-24 bg-zinc-950/90 backdrop-blur-3xl border-t border-white/5 px-6 flex items-center justify-between z-[90] cursor-pointer" onclick="openNowPlaying()">
+            <div class="flex items-center gap-4 w-1/2 md:w-1/3">
+                <img id="mini-cover" src="" class="w-12 h-12 rounded-xl object-cover shadow-lg bg-zinc-900">
+                <div class="overflow-hidden">
+                    <p id="mini-title" data-i18n="select_song" class="font-bold truncate text-sm text-white">Selecione uma música</p>
+                    <p id="mini-artist" class="text-[10px] text-zinc-500 truncate uppercase tracking-tighter">EchoStream Player</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-6">
+                <div class="desktop-only text-[10px] font-mono text-zinc-500 text-right">
+                    <span id="mini-time-current">0:00</span> / <span id="mini-time-total">0:00</span>
+                </div>
+                <div class="flex items-center gap-2 md:gap-4">
+                    <button onclick="event.stopPropagation(); prevSong();" class="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white transition active:scale-75">
+                        <i class="fa-solid fa-backward-step text-sm"></i>
+                    </button>
+                    <button onclick="event.stopPropagation(); togglePlay();" id="mini-play-btn" class="w-10 h-10 flex items-center justify-center text-white text-xl">
+                        <i class="fa-solid fa-play"></i>
+                    </button>
+                    <button onclick="event.stopPropagation(); nextSong();" class="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white transition active:scale-75">
+                        <i class="fa-solid fa-forward-step text-sm"></i>
+                    </button>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <div id="album-view" class="flex flex-col">
+        <div id="album-hero-bg"></div>
+        <header class="relative p-6 flex justify-between items-center z-10">
+            <button onclick="closeAlbum()" class="w-10 h-10 rounded-xl bg-black/20 backdrop-blur-md flex items-center justify-center border border-white/10">
+                <i class="fa-solid fa-chevron-down"></i>
+            </button>
+            <p class="font-black text-[9px] uppercase tracking-[0.4em] opacity-40">Coleção</p>
+            <div class="w-10"></div>
+        </header>
+        <div class="relative z-10 flex flex-col items-center px-6 pt-2 pb-8 text-center">
+            <div class="w-48 h-48 rounded-3xl overflow-hidden shadow-2xl mb-6 border border-white/10">
+                <img id="album-cover-display" src="" class="w-full h-full object-cover">
+            </div>
+            <h2 id="album-title-display" class="text-3xl font-black tracking-tighter uppercase mb-1">---</h2>
+            <p id="album-artist-display" class="text-xs font-bold text-green-500 uppercase tracking-widest mb-2">---</p>
+        </div>
+        <div id="album-tracks-list" class="relative z-10 flex-1 bg-black/40 backdrop-blur-3xl rounded-t-[40px] p-6 overflow-y-auto no-scrollbar border-t border-white/5 space-y-2"></div>
+    </div>
+
+    <div id="now-playing-screen">
+        <canvas id="visualizer"></canvas>
+        <div class="relative z-10 flex flex-col items-center justify-between h-full p-8 pb-12">
+            <div class="w-full flex justify-between items-center">
+                <button onclick="closeNowPlaying()" class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center active:scale-90 transition-transform">
+                    <i class="fa-solid fa-chevron-down text-zinc-400"></i>
+                </button>
+                <span data-i18n="playing_now" class="text-[9px] font-bold tracking-[0.4em] text-zinc-500 uppercase">Tocando agora</span>
+                <button onclick="toggleFavoriteCurrent()" id="fav-btn-main" class="w-10 h-10 flex items-center justify-center transition-all">
+                    <i class="fa-solid fa-heart text-zinc-600 text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="cover-container my-6" id="large-cover-parent">
+                <img id="large-cover" src="" class="slide-cover slide-active">
+            </div>
+
+            <div class="w-full max-sm text-center content-container" id="text-parent">
+                <div id="text-wrapper" class="slide-text">
+                    <h2 id="large-title" class="text-2xl font-black text-white truncate mb-1">Título</h2>
+                    <p id="large-artist" class="text-green-500 font-bold tracking-widest text-[10px] uppercase">Artista</p>
+                </div>
+            </div>
+
+            <div class="w-full max-sm">
+                <div class="mb-8">
+                    <div class="h-1.5 bg-white/10 rounded-full relative cursor-pointer mb-2" onclick="handleSeek(event)">
+                        <div id="prog-bar" class="absolute h-full bg-green-500 rounded-full w-0"></div>
+                    </div>
+                    <div class="flex justify-between text-[10px] font-mono text-zinc-500">
+                        <span id="time-current">0:00</span>
+                        <span id="time-total">0:00</span>
+                    </div>
+                </div>
+                <div class="flex items-center justify-center gap-12 mb-10">
+                    <button onclick="prevSong()" class="text-2xl text-zinc-400 hover:text-white transition active:scale-75"><i class="fa-solid fa-backward-step"></i></button>
+                    <button id="large-play-btn" onclick="togglePlay()" class="w-20 h-20 bg-white text-black rounded-full flex items-center justify-center shadow-2xl active:scale-90 transition-transform">
+                        <i class="fa-solid fa-play text-2xl ml-1"></i>
+                    </button>
+                    <button onclick="nextSong()" class="text-2xl text-zinc-400 hover:text-white transition active:scale-75"><i class="fa-solid fa-forward-step"></i></button>
+                </div>
+                <div class="flex items-center gap-4 px-5 py-4 bg-white/5 rounded-3xl border border-white/5">
+                    <i class="fa-solid fa-volume-low text-zinc-500 text-xs"></i>
+                    <input type="range" min="0" max="1" step="0.01" value="0.8" oninput="changeVolume(this.value)" class="flex-1">
+                    <i class="fa-solid fa-volume-high text-zinc-500 text-xs"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="feedback-popup" class="feedback-popup">
+        <div class="feedback-content">
+            <div class="animated-border"></div>
+            <div class="feedback-inner">
+                <div class="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <i class="fa-solid fa-star text-yellow-400 text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-black text-white mb-2 leading-tight">Está gostando do EchoStream?</h3>
+                <p class="text-zinc-500 text-xs mb-8">Ajude a manter o EchoStream sem anúncios e sempre evoluindo</p>
+                <div class="flex flex-col gap-3">
+                    <button onclick="handleDonate()" class="w-full py-4 bg-white text-black font-black rounded-2xl hover:scale-105 transition-all">Claro!</button>
+                    <button onclick="closeFeedback('no')" class="w-full py-4 bg-transparent text-zinc-500 font-bold hover:text-white transition-all text-sm">não, obrigado</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="audio-engine" crossorigin="anonymous"></audio>
+
+    <script>
+        const translations = {
+            pt: {
+                connect_btn: "CONECTAR", welcome_title: "Bem-vindo", welcome_sub: "Como devemos te chamar?",
+                name_placeholder: "Seu nome ou apelido...", enter_btn: "ENTRAR NO FLOW", options_title: "Opções",
+                lang_label: "Idioma", filters_label: "Filtros", fav_btn: "Favoritos", appearance_label: "Aparência",
+                base_theme: "Tema Base", theme_dark: "Escuro", theme_light: "Claro", grad_pos: "Local do Gradiente",
+                pos_top: "Topo", pos_bottom: "Base", pos_side: "Lateral", pos_none: "Limpo", accent_color: "Cor de Destaque",
+                search_placeholder: "Procurar...", sync_label: "Sincronizado", favs_view_label: "Seus Favoritos",
+                greet_msg: "Olá", library_title: "Sua Biblioteca", no_results: "Nada encontrado.",
+                select_song: "Selecione uma música", playing_now: "Tocando agora"
+            },
+            en: {
+                connect_btn: "CONNECT", welcome_title: "Welcome", welcome_sub: "What should we call you?",
+                name_placeholder: "Your nickname...", enter_btn: "ENTER THE FLOW", options_title: "Options",
+                lang_label: "Language", filters_label: "Filters", fav_btn: "Favorites", appearance_label: "Appearance",
+                base_theme: "Base Theme", theme_dark: "Dark", theme_light: "Light", grad_pos: "Gradient Position",
+                pos_top: "Top", pos_bottom: "Bottom", pos_side: "Side", pos_none: "None", accent_color: "Accent Color",
+                search_placeholder: "Search...", sync_label: "Synced", favs_view_label: "Your Favorites",
+                greet_msg: "Hello", library_title: "Your Library", no_results: "Nothing found.",
+                select_song: "Select a song", playing_now: "Now playing"
+            },
+            es: {
+                connect_btn: "CONECTAR", welcome_title: "Bienvenido", welcome_sub: "¿Cómo deberíamos llamarte?",
+                name_placeholder: "Tu apodo...", enter_btn: "ENTRAR AL FLOW", options_title: "Opciones",
+                lang_label: "Idioma", filters_label: "Filtros", fav_btn: "Favoritos", appearance_label: "Apariencia",
+                base_theme: "Tema Base", theme_dark: "Oscuro", theme_light: "Claro", grad_pos: "Posición Gradiente",
+                pos_top: "Superior", pos_bottom: "Inferior", pos_side: "Lateral", pos_none: "Limpio", accent_color: "Color de Acento",
+                search_placeholder: "Buscar...", sync_label: "Sincronizado", favs_view_label: "Tus Favoritos",
+                greet_msg: "Hola", library_title: "Tu Biblioteca", no_results: "No se encontró nada.",
+                select_song: "Selecciona una canción", playing_now: "Sonando ahora"
+            }
+        };
+
+        const forsakenCover = "https://files.catbox.moe/36ucwq.jpeg";
+        const forsakenArtist = "Forsaken Sound Team";
+
+        const albums = [
+            { id: 'alb_forsaken', name: 'Forsaken, Vol. 1', artist: forsakenArtist, cover: forsakenCover },
+            { id: 'alb_hill', name: 'Hill Sessions', artist: 'Gym & Hill', cover: 'https://files.catbox.moe/rn6duv.jpg' },
+            { id: 'alb_extra', name: 'Extra Mixes', artist: 'NickTeam', cover: 'https://u.cubeupload.com/NickTeam/artworksKwQ22SYvsnqz.png' },
+            { id: 'alb_trinity', name: 'Trinity Project', artist: 'Various', cover: 'https://u.cubeupload.com/NickTeam/cover.jpg' }
+        ];
+
+        // BIBLIOTECA COMPLETA INTEGRADA
+        const library = [
+            // ÁLBUM FORSAKEN (27 Faixas)
+            { id: 1, albumId: 'alb_forsaken', title: "Damnation", artist: forsakenArtist, url: "https://files.catbox.moe/0x83iw.mp3", cover: forsakenCover },
+            { id: 2, albumId: 'alb_forsaken', title: "Kill For Mother", artist: forsakenArtist, url: "https://files.catbox.moe/frzqa3.mp3", cover: forsakenCover },
+            { id: 3, albumId: 'alb_forsaken', title: "Ready Or Not", artist: forsakenArtist, url: "https://files.catbox.moe/5clkq9.mp3", cover: forsakenCover },
+            { id: 4, albumId: 'alb_forsaken', title: "Viral Infection", artist: forsakenArtist, url: "https://files.catbox.moe/izkzc7.mp3", cover: forsakenCover },
+            { id: 5, albumId: 'alb_forsaken', title: "Domino Effect", artist: forsakenArtist, url: "https://files.catbox.moe/dc0vhe.mp3", cover: forsakenCover },
+            { id: 6, albumId: 'alb_forsaken', title: "Hotel Robloxia", artist: forsakenArtist, url: "https://files.catbox.moe/f8zap6.mp3", cover: forsakenCover },
+            { id: 7, albumId: 'alb_forsaken', title: "Shadows", artist: forsakenArtist, url: "https://files.catbox.moe/iqc6sq.mp3", cover: forsakenCover },
+            { id: 8, albumId: 'alb_forsaken', title: "Resting Place", artist: forsakenArtist, url: "https://files.catbox.moe/qc7gix.mp3", cover: forsakenCover },
+            { id: 9, albumId: 'alb_forsaken', title: "Sundowner", artist: forsakenArtist, url: "https://files.catbox.moe/3jz6sq.mp3", cover: forsakenCover },
+            { id: 10, albumId: 'alb_forsaken', title: "My Cool Bluu Tune!!!", artist: forsakenArtist, url: "https://files.catbox.moe/70lb0x.mp3", cover: forsakenCover },
+            { id: 11, albumId: 'alb_forsaken', title: "Cut-Throat Tea Party", artist: forsakenArtist, url: "https://files.catbox.moe/rfmz90.mp3", cover: forsakenCover },
+            { id: 12, albumId: 'alb_forsaken', title: "Debito Di Sonno", artist: forsakenArtist, url: "https://files.catbox.moe/v2pul3.mp3", cover: forsakenCover },
+            { id: 13, albumId: 'alb_forsaken', title: "Bad Faith", artist: forsakenArtist, url: "https://files.catbox.moe/oddbt2.mp3", cover: forsakenCover },
+            { id: 14, albumId: 'alb_forsaken', title: "One Stud Angel", artist: forsakenArtist, url: "https://files.catbox.moe/c56w3y.mp3", cover: forsakenCover },
+            { id: 15, albumId: 'alb_forsaken', title: "Don't Touch My Chainsaw", artist: forsakenArtist, url: "https://files.catbox.moe/bmefj1.mp3", cover: forsakenCover },
+            { id: 16, albumId: 'alb_forsaken', title: "The End Is Nigh", artist: forsakenArtist, url: "https://files.catbox.moe/60vrpi.mp3", cover: forsakenCover },
+            { id: 17, albumId: 'alb_forsaken', title: "Killer Vanity", artist: forsakenArtist, url: "https://files.catbox.moe/ilqx84.mp3", cover: forsakenCover },
+            { id: 18, albumId: 'alb_forsaken', title: "#ff9cae", artist: forsakenArtist, url: "https://files.catbox.moe/mj3xhr.mp3", cover: forsakenCover },
+            { id: 19, albumId: 'alb_forsaken', title: "Cool One", artist: forsakenArtist, url: "https://files.catbox.moe/mnah6r.mp3", cover: forsakenCover },
+            { id: 20, albumId: 'alb_forsaken', title: "Banana Bus Breakdown", artist: forsakenArtist, url: "https://files.catbox.moe/gxxqkv.mp3", cover: forsakenCover },
+            { id: 21, albumId: 'alb_forsaken', title: "Chimes Of The Lucid", artist: forsakenArtist, url: "https://files.catbox.moe/vbe1f6.mp3", cover: forsakenCover },
+            { id: 22, albumId: 'alb_forsaken', title: "Corrupted Reflection", artist: forsakenArtist, url: "https://files.catbox.moe/6hw806.mp3", cover: forsakenCover },
+            { id: 23, albumId: 'alb_forsaken', title: "Just Survivors And Killers", artist: forsakenArtist, url: "https://files.catbox.moe/o2ld71.mp3", cover: forsakenCover },
+            { id: 24, albumId: 'alb_forsaken', title: "Obsession", artist: forsakenArtist, url: "https://files.catbox.moe/885lay.mp3", cover: forsakenCover },
+            { id: 25, albumId: 'alb_forsaken', title: "Unreggcognizable", artist: forsakenArtist, url: "https://files.catbox.moe/qwv5kl.mp3", cover: forsakenCover },
+            { id: 26, albumId: 'alb_forsaken', title: "A Grave Soul (Now, Run)", artist: forsakenArtist, url: "https://files.catbox.moe/q4kydq.mp3", cover: forsakenCover },
+            { id: 27, albumId: 'alb_forsaken', title: "Plead", artist: forsakenArtist, url: "https://files.catbox.moe/9rpy6d.mp3", cover: forsakenCover },
+            
+            // ORIGINAIS E EXTRAS
+            { id: 100, albumId: 'alb_hill', title: "Friends no More Round 2", artist: "Remix", url: "https://files.catbox.moe/pck8cj.mp3", cover: "https://files.catbox.moe/y6bflx.jpg" },
+            { id: 101, albumId: 'alb_hill', title: "Hide n seek", artist: "Nightmare", url: "https://files.catbox.moe/tly9ec.mp3", cover: "https://files.catbox.moe/rn6duv.jpg" },
+            { id: 102, albumId: 'alb_hill', title: "80 OR LESS (YCR OST)", artist: "YCR", url: "https://files.catbox.moe/tfikus.mp3", cover: "https://files.catbox.moe/rn6duv.jpg" },
+            { id: 103, albumId: 'alb_hill', title: "80 OR LESS [HILL.GYM]", artist: "Hill Gym", url: "https://files.catbox.moe/z9ea3t.mp3", cover: "https://files.catbox.moe/rn6duv.jpg" },
+            { id: 104, albumId: 'alb_hill', title: "80 OR LESS [HILL]", artist: "Hill", url: "https://files.catbox.moe/36fzbc.mp3", cover: "https://files.catbox.moe/rn6duv.jpg" },
+            { id: 105, albumId: 'alb_extra', title: "I Miss The Quiet", artist: "Novo", url: "https://files.catbox.moe/75yncp.m4a", cover: "https://files.catbox.moe/23oo9u.jpeg" },
+            { id: 106, albumId: 'alb_extra', title: "Shucks", artist: "Original", url: "https://files.catbox.moe/4xk880.m4a", cover: "https://u.cubeupload.com/NickTeam/1200x630bb.jpg" },
+            { id: 107, albumId: 'alb_extra', title: "Ma'Oi", artist: "Extra (Cover)", url: "https://files.catbox.moe/q0rw0k.mp3", cover: "https://u.cubeupload.com/NickTeam/46SemTtulo2026022611.png" },
+            { id: 108, albumId: 'alb_extra', title: "ShucksV3", artist: "Extra", url: "https://files.catbox.moe/33m4oi.mp3", cover: "https://u.cubeupload.com/NickTeam/artworksKwQ22SYvsnqz.png" },
+            { id: 110, albumId: 'alb_extra', title: "Shadow 4ever", artist: "Night Vibes", url: "https://files.catbox.moe/iq4bdr.mp3", cover: "https://u.cubeupload.com/NickTeam/artworks8pazLKnsfpNE.jpg" },
+            { id: 111, albumId: 'alb_extra', title: "Revenant", artist: "Epic Score", url: "https://files.catbox.moe/wo8ifq.mp3", cover: "https://u.cubeupload.com/NickTeam/images6.jpeg" },
+            { id: 112, albumId: 'alb_trinity', title: "TRINITY ENCORE", artist: "Hybrid Remix", url: "https://files.catbox.moe/mvpw0g.mp3", cover: "https://u.cubeupload.com/NickTeam/cover.jpg" },
+            { id: 113, albumId: 'alb_trinity', title: "Trinity", artist: "Hybrid Soul", url: "https://files.catbox.moe/7xobq4.mp3", cover: "https://u.cubeupload.com/NickTeam/cover.jpg" },
+            { id: 114, albumId: 'alb_trinity', title: "Fallen Down", artist: "Lofi Retro", url: "https://files.catbox.moe/oer90g.mp3", cover: "https://u.cubeupload.com/NickTeam/UndertaleSoundtrack2.png" },
+            { id: 115, albumId: 'alb_trinity', title: "Last Goodbye", artist: "Memory Lane", url: "https://files.catbox.moe/91q5ul.mp3", cover: "https://u.cubeupload.com/NickTeam/UndertaleSoundtrack2.png" }
+        ];
+
+        let favorites = JSON.parse(localStorage.getItem('echo_favs_list')) || [];
+        let viewMode = 'all', currentLang = 'pt', currentIndex = -1, isPlaying = false;
+        let audioCtx, analyzer, dataArray, bufferLength;
+        let songsCompleted = 0;
+        let feedbackShown = false;
+        const engine = document.getElementById('audio-engine');
+
+        function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
+        
+        function initSplashWall() {
+            const wall = document.getElementById('splash-wall');
+            wall.innerHTML = '';
+            const isDesktop = window.innerWidth >= 1024;
+            const colCount = isDesktop ? 7 : 3;
+            for(let i=0; i < colCount; i++) {
+                const col = document.createElement('div');
+                col.className = `wall-column ${i % 2 === 0 ? 'up' : 'down'}`;
+                const covers = shuffle(library.map(s => s.cover));
+                const items = [...covers, ...shuffle(covers), ...shuffle(covers)];
+                items.forEach(src => {
+                    const img = document.createElement('img');
+                    img.src = src;
+                    img.className = 'wall-item';
+                    col.appendChild(img);
+                });
+                wall.appendChild(col);
+            }
+        }
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`lang-${lang}`).classList.add('active');
+            document.querySelectorAll('[data-i18n]').forEach(el => el.innerText = translations[lang][el.getAttribute('data-i18n')]);
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => el.placeholder = translations[lang][el.getAttribute('data-i18n-placeholder')]);
+            document.getElementById('greet-text').innerText = translations[lang].greet_msg;
+            if(viewMode === 'favs') document.getElementById('view-type-label').innerText = translations[lang].favs_view_label;
+        }
+
+        function goToLogin() {
+            document.getElementById('splash-screen').classList.add('hidden-state');
+            setTimeout(() => {
+                document.getElementById('splash-screen').style.display = 'none';
+                document.getElementById('login-screen').classList.remove('hidden-state');
+            }, 600);
+        }
+
+        function finishLogin() {
+            const name = document.getElementById('username-input').value.trim();
+            if(!name) return;
+            document.getElementById('user-name-display').innerText = name;
+            document.getElementById('user-initial').innerText = name[0].toUpperCase();
+            document.getElementById('login-screen').classList.add('hidden-state');
+            setTimeout(() => {
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('main-app').classList.remove('hidden-state');
+                renderHome();
+                setTimeout(() => {
+                    const greet = document.getElementById('greet');
+                    greet.style.opacity = "1";
+                    greet.style.transform = "translateY(0)";
+                    showMobileInvite();
+                }, 200);
+            }, 600);
+        }
+
+        function showMobileInvite() {
+            const invite = document.getElementById('mobile-invite');
+            invite.classList.remove('hidden');
+            setTimeout(() => invite.classList.add('show'), 100);
+        }
+
+        function dismissInvite() {
+            const invite = document.getElementById('mobile-invite');
+            invite.classList.remove('show');
+            setTimeout(() => invite.classList.add('hidden'), 800);
+        }
+
+        function renderHome() {
+            // Renderizar Álbuns
+            document.getElementById('horizontal-albums').innerHTML = albums.map(a => `
+                <div class="flex-shrink-0 w-36 active:scale-95 transition-transform" onclick="openAlbum('${a.id}')">
+                    <div class="w-full aspect-square rounded-2xl overflow-hidden shadow-xl mb-2 border border-white/5 bg-zinc-900">
+                        <img src="${a.cover}" class="w-full h-full object-cover">
+                    </div>
+                    <p class="font-black text-[9px] truncate uppercase tracking-tighter">${a.name}</p>
+                </div>
+            `).join('');
+
+            renderLibrary();
+        }
+
+        function openAlbum(id) {
+            const album = albums.find(a => a.id === id);
+            const tracks = library.filter(t => t.albumId === id);
+            document.getElementById('album-hero-bg').style.backgroundImage = `url(${album.cover})`;
+            document.getElementById('album-cover-display').src = album.cover;
+            document.getElementById('album-title-display').innerText = album.name;
+            document.getElementById('album-artist-display').innerText = album.artist;
+            document.getElementById('album-tracks-list').innerHTML = tracks.map(t => `
+                <div class="flex items-center p-3 rounded-2xl active:bg-white/5" onclick="playTrack(${library.indexOf(t)})">
+                    <div class="flex-1 truncate">
+                        <p class="font-black text-[11px] uppercase tracking-tighter text-white">${t.title}</p>
+                        <p class="text-[8px] text-zinc-500 font-bold uppercase">${t.artist}</p>
+                    </div>
+                    <i class="fa-solid fa-play text-green-500 text-[10px]"></i>
+                </div>
+            `).join('');
+            document.getElementById('album-view').classList.add('active');
+        }
+
+        function closeAlbum() { document.getElementById('album-view').classList.remove('active'); }
+
+        function renderLibrary() {
+            const container = document.getElementById('grid-container');
+            const data = viewMode === 'favs' ? library.filter(s => favorites.includes(s.id)) : library;
+            container.innerHTML = data.map((s) => `
+                <div class="song-card p-4 rounded-3xl bg-white/[0.03] border border-white/5 cursor-pointer group relative transition-all" data-title="${s.title}" onclick="playTrack(${library.findIndex(i => i.id === s.id)})">
+                    <div class="relative aspect-square mb-3 rounded-2xl overflow-hidden shadow-xl">
+                        <img src="${s.cover}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">
+                    </div>
+                    <p class="font-bold truncate text-sm text-white">${s.title}</p>
+                    <p class="text-[10px] text-zinc-500 truncate uppercase tracking-widest">${s.artist}</p>
+                    <button onclick="toggleFavorite(${s.id}, event)" class="absolute top-6 right-6 z-10 p-2 rounded-full bg-black/40 border border-white/10 ${favorites.includes(s.id) ? 'favorite-active' : 'text-white/40'}">
+                        <i class="fa-solid fa-heart text-[10px]"></i>
+                    </button>
+                </div>
+            `).join('');
+            document.getElementById('no-results').classList.toggle('hidden', data.length > 0);
+        }
+
+        function updateAccent(color) {
+            document.documentElement.style.setProperty('--app-accent', color);
+            document.documentElement.style.setProperty('--grad-color', color + '33');
+            document.getElementById('logo-icon').style.color = color;
+            document.getElementById('profile-btn').style.borderColor = color + '4d';
+            document.getElementById('profile-btn').style.color = color;
+            document.getElementById('view-type-label').style.color = color;
+            document.getElementById('accent-picker').value = color;
+        }
+
+        function applyBaseTheme(t) { 
+            document.body.style.backgroundColor = t === 'light' ? '#f4f4f5' : '#000'; 
+            document.body.style.color = t === 'light' ? '#000' : '#fff'; 
+        }
+
+        function applyGrad(d) { document.getElementById('dynamic-bg').className = 'bg-' + d; }
+
+        function filterFavorites() {
+            viewMode = viewMode === 'favs' ? 'all' : 'favs';
+            const btn = document.getElementById('fav-filter-btn');
+            const label = document.getElementById('view-type-label');
+            if(viewMode === 'favs') {
+                btn.classList.add('active-filter');
+                label.innerText = translations[currentLang].favs_view_label;
+            } else {
+                btn.classList.remove('active-filter');
+                label.innerText = translations[currentLang].sync_label;
+            }
+            renderLibrary();
+            toggleMenu();
+        }
+
+        function initVisualizer() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            analyzer = audioCtx.createAnalyser();
+            const source = audioCtx.createMediaElementSource(engine);
+            source.connect(analyzer);
+            analyzer.connect(audioCtx.destination);
+            analyzer.fftSize = 64;
+            bufferLength = analyzer.frequencyBinCount;
+            dataArray = new Uint8Array(bufferLength);
+            const canvas = document.getElementById('visualizer');
+            const ctx = canvas.getContext('2d');
+            function draw() {
+                requestAnimationFrame(draw);
+                analyzer.getByteFrequencyData(dataArray);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const barWidth = (canvas.width / bufferLength);
+                let x = 0;
+                for (let i = 0; i < bufferLength; i++) {
+                    const barHeight = (dataArray[i] / 255) * canvas.height * 0.4;
+                    const accent = getComputedStyle(document.documentElement).getPropertyValue('--app-accent');
+                    ctx.fillStyle = accent + Math.floor(dataArray[i]/255 * 100).toString(16).padStart(2, '0');
+                    ctx.fillRect(x, canvas.height - barHeight, barWidth - 4, barHeight);
+                    x += barWidth;
+                }
+            }
+            const updateCanvasSize = () => {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            };
+            window.addEventListener('resize', updateCanvasSize);
+            updateCanvasSize();
+            draw();
+        }
+
+        async function playTrack(idx, direction = 'next') {
+            initVisualizer();
+            const song = library[idx];
+            if (currentIndex !== idx) {
+                if (currentIndex !== -1) animateTransition(song, direction);
+                else {
+                    document.getElementById('large-title').innerText = song.title;
+                    document.getElementById('large-artist').innerText = song.artist;
+                    document.getElementById('large-cover').src = song.cover;
+                }
+                currentIndex = idx;
+                engine.src = song.url;
+                document.getElementById('mini-title').innerText = song.title;
+                document.getElementById('mini-artist').innerText = song.artist;
+                document.getElementById('mini-cover').src = song.cover;
+                try { await engine.play(); isPlaying = true; } catch(e) {}
+            } else { togglePlay(); }
+            updateFavStatus();
+            updateButtons();
+        }
+
+        function animateTransition(song, dir) {
+            const img = document.getElementById('large-cover');
+            const parent = document.getElementById('large-cover-parent');
+            const textWrapper = document.getElementById('text-wrapper');
+            const textParent = document.getElementById('text-parent');
+
+            const oldImg = img.cloneNode();
+            parent.appendChild(oldImg);
+
+            const oldText = textWrapper.cloneNode(true);
+            textParent.appendChild(oldText);
+
+            img.style.transition = 'none';
+            img.src = song.cover;
+            img.className = `slide-cover ${dir === 'next' ? 'slide-in-right' : 'slide-in-left'}`;
+
+            document.getElementById('large-title').innerText = song.title;
+            document.getElementById('large-artist').innerText = song.artist;
+            textWrapper.style.transition = 'none';
+            textWrapper.style.opacity = '0';
+            textWrapper.style.transform = dir === 'next' ? 'translateX(50px)' : 'translateX(-50px)';
+
+            setTimeout(() => {
+                oldImg.classList.add(dir === 'next' ? 'slide-out-left' : 'slide-out-right');
+                oldText.style.opacity = '0';
+                oldText.style.transform = dir === 'next' ? 'translateX(-50px)' : 'translateX(50px)';
+
+                img.style.transition = '';
+                img.className = 'slide-cover slide-active';
+                
+                textWrapper.style.transition = '';
+                textWrapper.style.opacity = '1';
+                textWrapper.style.transform = 'translateX(0)';
+
+                setTimeout(() => { 
+                    oldImg.remove(); 
+                    oldText.remove(); 
+                }, 800);
+            }, 50);
+        }
+
+        function togglePlay() {
+            if (currentIndex === -1) return playTrack(0);
+            engine.paused ? engine.play() : engine.pause();
+            isPlaying = !engine.paused;
+            updateButtons();
+        }
+
+        function updateButtons() {
+            const icon = isPlaying ? '<i class="fa-solid fa-pause"></i>' : '<i class="fa-solid fa-play ml-1"></i>';
+            document.getElementById('mini-play-btn').innerHTML = icon;
+            document.getElementById('large-play-btn').innerHTML = icon;
+        }
+
+        function closeFeedback(choice) {
+            document.getElementById('feedback-popup').classList.remove('active');
+            feedbackShown = true;
+        }
+
+        function handleDonate() {
+            window.open('https://livepix.gg/echostream', '_blank');
+            closeFeedback();
+        }
+
+        function toggleMenu() { document.getElementById('side-menu').classList.toggle('active'); }
+        function toggleFavorite(id, e) { if(e) e.stopPropagation(); favorites.includes(id) ? favorites = favorites.filter(f => f !== id) : favorites.push(id); localStorage.setItem('echo_favs_list', JSON.stringify(favorites)); renderLibrary(); updateFavStatus(); }
+        function toggleFavoriteCurrent() { if(currentIndex !== -1) toggleFavorite(library[currentIndex].id); }
+        function updateFavStatus() { if(currentIndex === -1) return; document.getElementById('fav-btn-main').classList.toggle('favorite-active', favorites.includes(library[currentIndex].id)); }
+        function handleSeek(e) { const r = e.currentTarget.getBoundingClientRect(); engine.currentTime = ((e.clientX - r.left) / r.width) * engine.duration; }
+        function formatTime(s) { if(isNaN(s)) return "0:00"; const m = Math.floor(s/60), r = Math.floor(s%60); return `${m}:${r < 10 ? '0' : ''}${r}`; }
+        function changeVolume(v) { engine.volume = v; }
+        function openNowPlaying() { if(currentIndex !== -1) document.getElementById('now-playing-screen').classList.add('active'); }
+        function closeNowPlaying() { document.getElementById('now-playing-screen').classList.remove('active'); }
+        function toggleSearch() { const c = document.getElementById('search-container'); c.classList.toggle('expanded'); if(c.classList.contains('expanded')) document.getElementById('search-input').focus(); }
+        function handleSearch(v) { const q = v.toLowerCase(); document.querySelectorAll('.song-card').forEach(c => c.style.display = c.getAttribute('data-title').toLowerCase().includes(q) ? 'block' : 'none'); }
+
+        engine.ontimeupdate = () => {
+            const p = (engine.currentTime / engine.duration) * 100 || 0;
+            document.getElementById('prog-bar').style.width = p + '%';
+            const cur = formatTime(engine.currentTime), tot = formatTime(engine.duration);
+            document.getElementById('time-current').innerText = cur;
+            document.getElementById('time-total').innerText = tot;
+            document.getElementById('mini-time-current').innerText = cur;
+            document.getElementById('mini-time-total').innerText = tot;
+        };
+
+        engine.onended = () => {
+            songsCompleted++;
+            if(songsCompleted >= 3 && !feedbackShown) {
+                document.getElementById('feedback-popup').classList.add('active');
+            }
+            nextSong();
+        };
+
+        function nextSong() { playTrack((currentIndex + 1) % library.length, 'next'); }
+        function prevSong() { playTrack((currentIndex - 1 + library.length) % library.length, 'prev'); }
+
+        window.onload = () => { 
+            initSplashWall(); 
+            setLanguage('pt'); 
+            window.addEventListener('resize', initSplashWall);
+        };
+    </script>
+</body>
+</html>
