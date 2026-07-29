@@ -12,6 +12,7 @@
         :root {
             --app-accent: #22c55e;
             --grad-color: rgba(34, 197, 94, 0.15);
+            --grad-color-2: transparent;
         }
 
         body { 
@@ -31,9 +32,9 @@
             z-index: 0;
             transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .bg-up { background: linear-gradient(to bottom, var(--grad-color), transparent 70%); }
-        .bg-down { background: linear-gradient(to top, var(--grad-color), transparent 70%); }
-        .bg-side { background: linear-gradient(to right, var(--grad-color), transparent 70%); }
+        .bg-up { background: linear-gradient(to bottom, var(--grad-color), var(--grad-color-2) 45%, transparent 85%); }
+        .bg-down { background: linear-gradient(to top, var(--grad-color), var(--grad-color-2) 45%, transparent 85%); }
+        .bg-side { background: linear-gradient(to right, var(--grad-color), var(--grad-color-2) 45%, transparent 85%); }
         .bg-none { background: none; }
 
         .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(25px); border: 1px solid rgba(255, 255, 255, 0.08); }
@@ -310,6 +311,32 @@
                     <label data-i18n="accent_color" class="text-xs font-semibold text-zinc-400">Cor de Destaque</label>
                     <input type="color" id="accent-picker" onchange="updateAccent(this.value)" value="#22c55e" class="w-full h-12 bg-transparent cursor-pointer rounded-xl block">
                 </div>
+                <div class="space-y-3">
+                    <label data-i18n="grad_color2" class="text-xs font-semibold text-zinc-400">Cor Secundária do Gradiente</label>
+                    <input type="color" id="accent-picker-2" onchange="updateGradientColor2(this.value)" value="#3b82f6" class="w-full h-12 bg-transparent cursor-pointer rounded-xl block">
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <p data-i18n="profile_pic_label" class="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.3em]">Foto de Perfil</p>
+                <div class="flex items-center gap-4">
+                    <div class="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
+                        <img id="profile-pic-preview" src="" class="w-full h-full object-cover hidden">
+                        <span id="profile-pic-preview-initial" class="font-black text-lg text-zinc-500">?</span>
+                    </div>
+                    <div class="flex-1 space-y-2">
+                        <input type="file" id="profile-pic-input" accept="image/*" class="hidden" onchange="handleProfilePicUpload(event)">
+                        <button onclick="document.getElementById('profile-pic-input').click()" data-i18n="choose_photo" class="w-full py-3 bg-white/5 border border-white/10 rounded-xl text-[10px] font-bold text-white uppercase tracking-tighter">Escolher Foto</button>
+                        <button onclick="removeProfilePic()" data-i18n="remove_photo" class="w-full py-2 bg-transparent text-zinc-500 hover:text-white text-[10px] font-bold uppercase tracking-tighter">Remover Foto</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <button onclick="logoutUser()" class="w-full flex items-center justify-center gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 font-bold text-xs uppercase tracking-tighter hover:bg-red-500/20 transition">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    <span data-i18n="logout_btn">Sair da Conta</span>
+                </button>
             </div>
         </div>
     </div>
@@ -329,7 +356,8 @@
                         class="bg-transparent border-none outline-none text-xs ml-3 w-full text-white"
                         oninput="handleSearch(this.value)">
                 </div>
-                <button onclick="toggleMenu()" id="profile-btn" class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center border border-green-500/30 text-green-500 font-bold active:scale-90 transition-transform">
+                <button onclick="toggleMenu()" id="profile-btn" class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center border border-green-500/30 text-green-500 font-bold active:scale-90 transition-transform overflow-hidden">
+                    <img id="profile-pic-img" src="" class="w-full h-full object-cover hidden">
                     <span id="user-initial">?</span>
                 </button>
             </div>
@@ -480,7 +508,9 @@
                 pos_top: "Topo", pos_bottom: "Base", pos_side: "Lateral", pos_none: "Limpo", accent_color: "Cor de Destaque",
                 search_placeholder: "Procurar...", sync_label: "Sincronizado", favs_view_label: "Seus Favoritos",
                 greet_msg: "Olá", library_title: "Sua Biblioteca", no_results: "Nada encontrado.",
-                select_song: "Selecione uma música", playing_now: "Tocando agora"
+                select_song: "Selecione uma música", playing_now: "Tocando agora",
+                grad_color2: "Cor Secundária do Gradiente", profile_pic_label: "Foto de Perfil",
+                choose_photo: "Escolher Foto", remove_photo: "Remover Foto", logout_btn: "Sair da Conta"
             },
             en: {
                 connect_btn: "CONNECT", welcome_title: "Welcome", welcome_sub: "What should we call you?",
@@ -490,7 +520,9 @@
                 pos_top: "Top", pos_bottom: "Bottom", pos_side: "Side", pos_none: "None", accent_color: "Accent Color",
                 search_placeholder: "Search...", sync_label: "Synced", favs_view_label: "Your Favorites",
                 greet_msg: "Hello", library_title: "Your Library", no_results: "Nothing found.",
-                select_song: "Select a song", playing_now: "Now playing"
+                select_song: "Select a song", playing_now: "Now playing",
+                grad_color2: "Gradient Secondary Color", profile_pic_label: "Profile Picture",
+                choose_photo: "Choose Photo", remove_photo: "Remove Photo", logout_btn: "Log Out"
             },
             es: {
                 connect_btn: "CONECTAR", welcome_title: "Bienvenido", welcome_sub: "¿Cómo deberíamos llamarte?",
@@ -500,7 +532,9 @@
                 pos_top: "Superior", pos_bottom: "Inferior", pos_side: "Lateral", pos_none: "Limpio", accent_color: "Color de Acento",
                 search_placeholder: "Buscar...", sync_label: "Sincronizado", favs_view_label: "Tus Favoritos",
                 greet_msg: "Hola", library_title: "Tu Biblioteca", no_results: "No se encontró nada.",
-                select_song: "Selecciona una canción", playing_now: "Sonando ahora"
+                select_song: "Selecciona una canción", playing_now: "Sonando ahora",
+                grad_color2: "Color Secundario del Gradiente", profile_pic_label: "Foto de Perfil",
+                choose_photo: "Elegir Foto", remove_photo: "Quitar Foto", logout_btn: "Cerrar Sesión"
             }
         };
 
@@ -613,8 +647,12 @@
         function finishLogin() {
             const name = document.getElementById('username-input').value.trim();
             if(!name) return;
+            localStorage.setItem('echo_username', name);
             document.getElementById('user-name-display').innerText = name;
             document.getElementById('user-initial').innerText = name[0].toUpperCase();
+            restoreAppearance();
+            const savedPic = localStorage.getItem('echo_profile_pic');
+            if(savedPic) setProfilePic(savedPic);
             document.getElementById('login-screen').classList.add('hidden-state');
             setTimeout(() => {
                 document.getElementById('login-screen').style.display = 'none';
@@ -627,6 +665,22 @@
                     showMobileInvite();
                 }, 200);
             }, 600);
+        }
+
+        function autoLogin(name) {
+            document.getElementById('splash-screen').style.display = 'none';
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('user-name-display').innerText = name;
+            document.getElementById('user-initial').innerText = name[0].toUpperCase();
+            restoreAppearance();
+            const savedPic = localStorage.getItem('echo_profile_pic');
+            if(savedPic) setProfilePic(savedPic);
+            document.getElementById('main-app').classList.remove('hidden-state');
+            renderHome();
+            const greet = document.getElementById('greet');
+            greet.style.opacity = "1";
+            greet.style.transform = "translateY(0)";
+            showMobileInvite();
         }
 
         function showMobileInvite() {
@@ -694,7 +748,7 @@
             document.getElementById('no-results').classList.toggle('hidden', data.length > 0);
         }
 
-        function updateAccent(color) {
+        function updateAccent(color, skipSave) {
             document.documentElement.style.setProperty('--app-accent', color);
             document.documentElement.style.setProperty('--grad-color', color + '33');
             document.getElementById('logo-icon').style.color = color;
@@ -702,14 +756,70 @@
             document.getElementById('profile-btn').style.color = color;
             document.getElementById('view-type-label').style.color = color;
             document.getElementById('accent-picker').value = color;
+            if(!skipSave) localStorage.setItem('echo_accent', color);
         }
 
-        function applyBaseTheme(t) { 
+        function updateGradientColor2(color, skipSave) {
+            document.documentElement.style.setProperty('--grad-color-2', color + '33');
+            document.getElementById('accent-picker-2').value = color;
+            if(!skipSave) localStorage.setItem('echo_accent2', color);
+        }
+
+        function applyBaseTheme(t, skipSave) { 
             document.body.style.backgroundColor = t === 'light' ? '#f4f4f5' : '#000'; 
             document.body.style.color = t === 'light' ? '#000' : '#fff'; 
+            if(!skipSave) localStorage.setItem('echo_theme', t);
         }
 
-        function applyGrad(d) { document.getElementById('dynamic-bg').className = 'bg-' + d; }
+        function applyGrad(d, skipSave) { 
+            document.getElementById('dynamic-bg').className = 'bg-' + d; 
+            if(!skipSave) localStorage.setItem('echo_grad_pos', d);
+        }
+
+        function restoreAppearance() {
+            const accent = localStorage.getItem('echo_accent');
+            const accent2 = localStorage.getItem('echo_accent2');
+            const gradPos = localStorage.getItem('echo_grad_pos');
+            const theme = localStorage.getItem('echo_theme');
+            if(accent) updateAccent(accent, true);
+            if(accent2) updateGradientColor2(accent2, true);
+            if(gradPos) applyGrad(gradPos, true);
+            if(theme) applyBaseTheme(theme, true);
+        }
+
+        function handleProfilePicUpload(e) {
+            const file = e.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                localStorage.setItem('echo_profile_pic', ev.target.result);
+                setProfilePic(ev.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function setProfilePic(dataUrl) {
+            document.getElementById('profile-pic-img').src = dataUrl;
+            document.getElementById('profile-pic-img').classList.remove('hidden');
+            document.getElementById('user-initial').classList.add('hidden');
+            document.getElementById('profile-pic-preview').src = dataUrl;
+            document.getElementById('profile-pic-preview').classList.remove('hidden');
+            document.getElementById('profile-pic-preview-initial').classList.add('hidden');
+        }
+
+        function removeProfilePic() {
+            localStorage.removeItem('echo_profile_pic');
+            document.getElementById('profile-pic-img').classList.add('hidden');
+            document.getElementById('user-initial').classList.remove('hidden');
+            document.getElementById('profile-pic-preview').classList.add('hidden');
+            document.getElementById('profile-pic-preview-initial').classList.remove('hidden');
+        }
+
+        function logoutUser() {
+            localStorage.removeItem('echo_username');
+            localStorage.removeItem('echo_profile_pic');
+            location.reload();
+        }
 
         function filterFavorites() {
             viewMode = viewMode === 'favs' ? 'all' : 'favs';
@@ -880,9 +990,14 @@
         function prevSong() { playTrack((currentIndex - 1 + library.length) % library.length, 'prev'); }
 
         window.onload = () => { 
-            initSplashWall(); 
             setLanguage('pt'); 
-            window.addEventListener('resize', initSplashWall);
+            const savedName = localStorage.getItem('echo_username');
+            if(savedName) {
+                autoLogin(savedName);
+            } else {
+                initSplashWall();
+                window.addEventListener('resize', initSplashWall);
+            }
         };
     </script>
 </body>
