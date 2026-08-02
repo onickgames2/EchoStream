@@ -580,8 +580,8 @@
             { id: 25, albumId: 'alb_forsaken', title: "Unreggcognizable", artist: forsakenArtist, url: "https://files.catbox.moe/qwv5kl.mp3", cover: forsakenCover },
             { id: 26, albumId: 'alb_forsaken', title: "A Grave Soul (Now, Run)", artist: forsakenArtist, url: "https://files.catbox.moe/q4kydq.mp3", cover: forsakenCover },
             { id: 27, albumId: 'alb_forsaken', title: "Plead", artist: forsakenArtist, url: "https://files.catbox.moe/9rpy6d.mp3", cover: forsakenCover },
-            { id: 28, albumId: 'alb_forsaken', title: "Best Friends Forever", artist: forsakenArtist, url: "https://litter.catbox.moe/4so6tz6bc99muaws.mp3", cover: forsakenCover },
-            { id: 29, albumId: 'alb_forsaken', title: "You And I", artist: forsakenArtist, url: "https://litter.catbox.moe/d88e2gjz6oywd635.mp3", cover: forsakenCover },
+            { id: 28, albumId: 'alb_forsaken', title: "Best Friends Forever", artist: forsakenArtist, url: "https://litter.catbox.moe/4so6tz6bc99muaws.mp3", cover: forsakenCover, expiresAt: "2026-08-05T23:59:59" },
+            { id: 29, albumId: 'alb_forsaken', title: "You And I", artist: forsakenArtist, url: "https://litter.catbox.moe/d88e2gjz6oywd635.mp3", cover: forsakenCover, expiresAt: "2026-08-05T23:59:59" },
             
             // ORIGINAIS E EXTRAS
             { id: 100, albumId: 'alb_hill', title: "Friends no More Round 2", artist: "Remix", url: "https://files.catbox.moe/pck8cj.mp3", cover: "https://files.catbox.moe/y6bflx.jpg" },
@@ -600,6 +600,12 @@
             { id: 114, albumId: 'alb_trinity', title: "Fallen Down", artist: "Lofi Retro", url: "https://files.catbox.moe/oer90g.mp3", cover: "https://u.cubeupload.com/NickTeam/UndertaleSoundtrack2.png" },
             { id: 115, albumId: 'alb_trinity', title: "Last Goodbye", artist: "Memory Lane", url: "https://files.catbox.moe/91q5ul.mp3", cover: "https://u.cubeupload.com/NickTeam/UndertaleSoundtrack2.png" }
         ];
+
+        // Faixas com prazo de expiração (ex: "expiresAt") deixam de aparecer
+        // na biblioteca automaticamente após a data definida.
+        function isExpired(song) {
+            return !!song.expiresAt && Date.now() > new Date(song.expiresAt).getTime();
+        }
 
         let favorites = JSON.parse(localStorage.getItem('echo_favs_list')) || [];
         let viewMode = 'all', currentLang = 'pt', currentIndex = -1, isPlaying = false;
@@ -715,7 +721,7 @@
 
         function openAlbum(id) {
             const album = albums.find(a => a.id === id);
-            const tracks = library.filter(t => t.albumId === id);
+            const tracks = library.filter(t => t.albumId === id && !isExpired(t));
             document.getElementById('album-hero-bg').style.backgroundImage = `url(${album.cover})`;
             document.getElementById('album-cover-display').src = album.cover;
             document.getElementById('album-title-display').innerText = album.name;
@@ -736,7 +742,8 @@
 
         function renderLibrary() {
             const container = document.getElementById('grid-container');
-            const data = viewMode === 'favs' ? library.filter(s => favorites.includes(s.id)) : library;
+            let data = viewMode === 'favs' ? library.filter(s => favorites.includes(s.id)) : library;
+            data = data.filter(s => !isExpired(s));
             container.innerHTML = data.map((s) => `
                 <div class="song-card p-4 rounded-3xl bg-white/[0.03] border border-white/5 cursor-pointer group relative transition-all" data-title="${s.title}" onclick="playTrack(${library.findIndex(i => i.id === s.id)})">
                     <div class="relative aspect-square mb-3 rounded-2xl overflow-hidden shadow-xl">
